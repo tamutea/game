@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>人生ゲーム盤面（5人プレイ）</title>
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(14, 40px); /* 列数はあなたの盤面に合わせて調整OK */
+    grid-auto-rows: 40px;
+    gap: 4px;
+    margin: 20px auto;
+    background: #f5f5f5;
+    padding: 10px;
+  }
+  .cell {
+    border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background: #fff;
+    font-size: 10px;
+    position: relative;
+  }
+
+  .players-badge {
+  position: absolute;
+  top: 0px;       /* ← マスの上側に配置 */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+}
+
+  .player-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .p0 { background:#ffcc00; } /* プレイヤー1 */
+  .p1 { background:#00ccff; } /* プレイヤー2 */
+  .p2 { background:#ff66cc; } /* プレイヤー3 */
+  .p3 { background:#66ff66; } /* プレイヤー4 */
+  .p4 { background:#ff6666; } /* プレイヤー5 */
+
+  img {
+    max-width: 80%;
+    max-height: 40%;
+  }
+  button {
+    margin: 10px;
+    padding: 10px;
+    font-size: 16px;
+  }
+  
+  @keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+#loseImg.blink {
+  animation: blink 0.09s infinite;
+}
+
+
+
+</style>
+</head>
+<body>
+
+  <div id="setupPanel" style="padding:20px;">
+  <h2>マス内容の事前設定</h2>
+
+  <h3>文章スロット（50個）</h3>
+  <div id="textSlots"></div>
+
+  <h3>画像アップロード</h3>
+  <input type="file" id="imgInput" accept="image/*" multiple>
+  <div id="imgList" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+
+  <button id="startGameBtn" style="margin-top:20px;">決定してゲーム開始</button>
+</div>
+
+<div id="cellPopup" style="
+  display:none;
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  background:white;
+  padding:20px;
+  border:2px solid #333;
+  z-index:9999;
+  text-align:center;
+">
+  <div id="popupText" style="margin-bottom:10px; font-size:18px;"></div>
+  <img id="popupImg" src="" style="max-width:200px; display:none;">
+  <br>
+  <button onclick="closeCellPopup()">閉じる</button>
+</div>
+
+<div id="losePopup" style="
+  display:none;
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  background:white;
+  padding:20px;
+  border:2px solid #333;
+  z-index:9999;
+  text-align:center;
+">
+  <h2 style="color:red;">敗北…</h2>
+  <img id="loseImg" src="" style="max-width:250px;">
+  <br><br>
+  <button onclick="location.reload()">ゲームをやり直す</button>
+</div>
+
+<div id="videoPopup" style="
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.8);
+  z-index:99999;
+  justify-content:center;
+  align-items:center;
+">
+  <video id="eventVideo" width="80%" controls></video>
+</div>
+
+
+<h1>人生ゲーム（5人プレイ版）</h1>
+<div id="turnInfo"></div>
+<div id="board"></div>
+<button onclick="rollDice()">サイコロを振る</button>
+<p id="status">ゲーム開始前です。</p>
+<img id="diceImg" src="dice1.png" width="80">
+
+<script>
+const TYPE_START    = "start";
+const TYPE_NORMAL   = "normal";
+const TYPE_BRANCH   = "branch";
+const TYPE_WARP_TO  = "warpTo";
+const TYPE_WARP_FROM= "warpFrom";
+const TYPE_ONEWAY   = "oneway";
+const TYPE_GOAL     = "goal";
+
+function col(c){ return c.charCodeAt(0)-64; }
+
+/* ★★★ ここに「いま動いている board 配列」をそのまま貼る ★★★
+   （A1〜F23 まで、あなたがすでに動作確認したもの）
+   例：
+   let board = [
+     {id:"A1",label:"ス",type:TYPE_START,row:1,col:col("A"),next:["A2"],text:""},
+     ...
+   ];
+*/
+let board = [/* ←ここをあなたの現行 board 定義で埋める */  // A1〜A7
+  {id:"A1",label:"ス",type:TYPE_START,row:1,col:col("A"),next:["A2"],text:""},
+  {id:"A2",label:"○",type:TYPE_NORMAL,row:2,col:col("A"),next:["A3"],text:""},
+  {id:"A3",label:"○",type:TYPE_NORMAL,row:3,col:col("A"),next:["A4"],text:""},
+  {id:"A4",label:"○",type:TYPE_NORMAL,row:4,col:col("A"),next:["A5"],text:""},
+  {id:"A5",label:"○",type:TYPE_NORMAL,row:5,col:col("A"),next:["A6"],text:""},
+  {id:"A6",label:"○",type:TYPE_NORMAL,row:6,col:col("A"),next:["A7"],text:""},
+  {id:"A7",label:"○",type:TYPE_NORMAL,row:7,col:col("A"),next:["A8"],text:""},
+
+  // A8 分岐①
+  {id:"A8",label:"●",type:TYPE_BRANCH,row:8,col:col("A"),next:["B8","A9"],text:"分岐1"},
+
+  // A8 → 右ルート → H11
+  {id:"B8",label:"○",type:TYPE_NORMAL,row:8,col:col("B"),next:["C8"],text:""},
+  {id:"C8",label:"○",type:TYPE_NORMAL,row:8,col:col("C"),next:["D8"],text:""},
+  {id:"D8",label:"○",type:TYPE_NORMAL,row:8,col:col("D"),next:["E8"],text:""},
+  {id:"E8",label:"○",type:TYPE_NORMAL,row:8,col:col("E"),next:["F8"],text:""},
+  {id:"F8",label:"○",type:TYPE_NORMAL,row:8,col:col("F"),next:["G8"],text:""},
+  {id:"G8",label:"○",type:TYPE_NORMAL,row:8,col:col("G"),next:["H8"],text:""},
+  {id:"H8",label:"○",type:TYPE_NORMAL,row:8,col:col("H"),next:["H9"],text:""},
+  {id:"H9",label:"○",type:TYPE_NORMAL,row:9,col:col("H"),next:["H10"],text:""},
+  {id:"H10",label:"○",type:TYPE_NORMAL,row:10,col:col("H"),next:["H11"],text:""},
+
+  // 一方通行 H11
+  {id:"H11",label:"▲",type:TYPE_ONEWAY,row:11,col:col("H"),next:["I11"],text:"一方通行"},
+
+  // A8 → 下ルート → H11 に合流
+  {id:"A9",label:"○",type:TYPE_NORMAL,row:9,col:col("A"),next:["A10"],text:""},
+  {id:"A10",label:"○",type:TYPE_NORMAL,row:10,col:col("A"),next:["A11"],text:""},
+  {id:"A11",label:"○",type:TYPE_NORMAL,row:11,col:col("A"),next:["A12"],text:""},
+  {id:"A12",label:"○",type:TYPE_NORMAL,row:12,col:col("A"),next:["A13"],text:""},
+  {id:"A13",label:"○",type:TYPE_NORMAL,row:13,col:col("A"),next:["A14"],text:""},
+  {id:"A14",label:"○",type:TYPE_NORMAL,row:14,col:col("A"),next:["B14"],text:""},
+
+  {id:"B14",label:"○",type:TYPE_NORMAL,row:14,col:col("B"),next:["C14"],text:""},
+  {id:"C14",label:"○",type:TYPE_NORMAL,row:14,col:col("C"),next:["D14"],text:""},
+  {id:"D14",label:"○",type:TYPE_NORMAL,row:14,col:col("D"),next:["E14"],text:""},
+  {id:"E14",label:"○",type:TYPE_NORMAL,row:14,col:col("E"),next:["F14"],text:""},
+  {id:"F14",label:"○",type:TYPE_NORMAL,row:14,col:col("F"),next:["G14"],text:""},
+  {id:"G14",label:"○",type:TYPE_NORMAL,row:14,col:col("G"),next:["H14"],text:""},
+  {id:"H14",label:"○",type:TYPE_NORMAL,row:14,col:col("H"),next:["H13"],text:""},
+  {id:"H13",label:"○",type:TYPE_NORMAL,row:13,col:col("H"),next:["H12"],text:""},
+  {id:"H12",label:"○",type:TYPE_NORMAL,row:12,col:col("H"),next:["H11"],text:""},
+
+  // ◎ ワープ先 C11 から H11 まで横に進む
+  {id:"C11",label:"◎",type:TYPE_WARP_TO,row:11,col:col("C"),next:["D11"],text:"ワープ先"},
+  {id:"D11",label:"○",type:TYPE_NORMAL,row:11,col:col("D"),next:["E11"],text:""},
+  {id:"E11",label:"○",type:TYPE_NORMAL,row:11,col:col("E"),next:["F11"],text:""},
+  {id:"F11",label:"○",type:TYPE_NORMAL,row:11,col:col("F"),next:["G11"],text:""},
+  {id:"G11",label:"○",type:TYPE_NORMAL,row:11,col:col("G"),next:["H11"],text:""},
+
+  // H11 → M11
+  {id:"I11",label:"○",type:TYPE_NORMAL,row:11,col:col("I"),next:["J11"],text:""},
+  {id:"J11",label:"○",type:TYPE_NORMAL,row:11,col:col("J"),next:["K11"],text:""},
+  {id:"K11",label:"○",type:TYPE_NORMAL,row:11,col:col("K"),next:["L11"],text:""},
+  {id:"L11",label:"○",type:TYPE_NORMAL,row:11,col:col("L"),next:["M11"],text:""},
+  {id:"M11",label:"○",type:TYPE_NORMAL,row:11,col:col("M"),next:["M12"],text:""},
+
+  // M11 → M19
+  {id:"M12",label:"○",type:TYPE_NORMAL,row:12,col:col("M"),next:["M13"],text:""},
+  {id:"M13",label:"○",type:TYPE_NORMAL,row:13,col:col("M"),next:["M14"],text:""},
+  {id:"M14",label:"○",type:TYPE_NORMAL,row:14,col:col("M"),next:["M15"],text:""},
+  {id:"M15",label:"○",type:TYPE_NORMAL,row:15,col:col("M"),next:["M16"],text:""},
+  {id:"M16",label:"○",type:TYPE_NORMAL,row:16,col:col("M"),next:["M17"],text:""},
+  {id:"M17",label:"○",type:TYPE_NORMAL,row:17,col:col("M"),next:["M18"],text:""},
+  {id:"M18",label:"○",type:TYPE_NORMAL,row:18,col:col("M"),next:["M19"],text:""},
+  {id:"M19",label:"○",type:TYPE_NORMAL,row:19,col:col("M"),next:["L19"],text:""},
+
+  // M19 → F19
+  {id:"L19",label:"○",type:TYPE_NORMAL,row:19,col:col("L"),next:["K19"],text:""},
+  {id:"K19",label:"○",type:TYPE_NORMAL,row:19,col:col("K"),next:["J19"],text:""},
+  {id:"J19",label:"○",type:TYPE_NORMAL,row:19,col:col("J"),next:["I19"],text:""},
+  {id:"I19",label:"○",type:TYPE_NORMAL,row:19,col:col("I"),next:["H19"],text:""},
+  {id:"H19",label:"○",type:TYPE_NORMAL,row:19,col:col("H"),next:["G19"],text:""},
+  {id:"G19",label:"○",type:TYPE_NORMAL,row:19,col:col("G"),next:["F19"],text:""},
+  {id:"F19",label:"○",type:TYPE_NORMAL,row:19,col:col("F"),next:["F20"],text:""},
+
+  // △ ワープ元 F20（止まったときだけ C11 へワープ）
+  // 通常の進行としては F21 へ進む
+  {id:"F20",label:"△",type:TYPE_WARP_FROM,row:20,col:col("F"),next:["F21"],text:"ワープ元"},
+
+
+// ここから下、F21 以降を差し替え
+
+// 分岐② F21
+{id:"F21",label:"●",type:TYPE_BRANCH,row:21,col:col("F"),next:["G21","E21"],text:"分岐2"},
+
+// 右ルート：F21 → I21
+{id:"G21",label:"○",type:TYPE_NORMAL,row:21,col:col("G"),next:["H21"],text:""},
+{id:"H21",label:"○",type:TYPE_NORMAL,row:21,col:col("H"),next:["I21"],text:""},
+{id:"I21",label:"○",type:TYPE_NORMAL,row:21,col:col("I"),next:["I22"],text:""},
+
+// 右ルート：I21 → I29（下へ）
+{id:"I22",label:"○",type:TYPE_NORMAL,row:22,col:col("I"),next:["I23"],text:""},
+{id:"I23",label:"○",type:TYPE_NORMAL,row:23,col:col("I"),next:["I24"],text:""},
+{id:"I24",label:"○",type:TYPE_NORMAL,row:24,col:col("I"),next:["I25"],text:""},
+{id:"I25",label:"○",type:TYPE_NORMAL,row:25,col:col("I"),next:["I26"],text:""},
+{id:"I26",label:"○",type:TYPE_NORMAL,row:26,col:col("I"),next:["I27"],text:""},
+{id:"I27",label:"○",type:TYPE_NORMAL,row:27,col:col("I"),next:["I28"],text:""},
+{id:"I28",label:"○",type:TYPE_NORMAL,row:28,col:col("I"),next:["I29"],text:""},
+{id:"I29",label:"○",type:TYPE_NORMAL,row:29,col:col("I"),next:["H29"],text:""},
+
+// 右ルート：I29 → F29（左へ）
+{id:"H29",label:"○",type:TYPE_NORMAL,row:29,col:col("H"),next:["G29"],text:""},
+{id:"G29",label:"○",type:TYPE_NORMAL,row:29,col:col("G"),next:["F29"],text:""},
+
+// 左ルート：F21 → C21
+{id:"E21",label:"○",type:TYPE_NORMAL,row:21,col:col("E"),next:["D21"],text:""},
+{id:"D21",label:"○",type:TYPE_NORMAL,row:21,col:col("D"),next:["C21"],text:""},
+{id:"C21",label:"○",type:TYPE_NORMAL,row:21,col:col("C"),next:["C22"],text:""},
+
+// 左ルート：C21 → C29（下へ）
+{id:"C22",label:"○",type:TYPE_NORMAL,row:22,col:col("C"),next:["C23"],text:""},
+{id:"C23",label:"○",type:TYPE_NORMAL,row:23,col:col("C"),next:["C24"],text:""},
+{id:"C24",label:"○",type:TYPE_NORMAL,row:24,col:col("C"),next:["C25"],text:""},
+{id:"C25",label:"○",type:TYPE_NORMAL,row:25,col:col("C"),next:["C26"],text:""},
+{id:"C26",label:"○",type:TYPE_NORMAL,row:26,col:col("C"),next:["C27"],text:""},
+{id:"C27",label:"○",type:TYPE_NORMAL,row:27,col:col("C"),next:["C28"],text:""},
+{id:"C28",label:"○",type:TYPE_NORMAL,row:28,col:col("C"),next:["C29"],text:""},
+{id:"C29",label:"○",type:TYPE_NORMAL,row:29,col:col("C"),next:["D29"],text:""},
+
+// 左ルート：C29 → F29（右へ）
+{id:"D29",label:"○",type:TYPE_NORMAL,row:29,col:col("D"),next:["E29"],text:""},
+{id:"E29",label:"○",type:TYPE_NORMAL,row:29,col:col("E"),next:["F29"],text:""},
+
+// 共通：F29 → F23（上に戻ってゴール）
+{id:"F29",label:"○",type:TYPE_NORMAL,row:29,col:col("F"),next:["F28"],text:""},
+{id:"F28",label:"○",type:TYPE_NORMAL,row:28,col:col("F"),next:["F27"],text:""},
+{id:"F27",label:"○",type:TYPE_NORMAL,row:27,col:col("F"),next:["F26"],text:""},
+{id:"F26",label:"○",type:TYPE_NORMAL,row:26,col:col("F"),next:["F25"],text:""},
+{id:"F25",label:"○",type:TYPE_NORMAL,row:25,col:col("F"),next:["F24"],text:""},
+{id:"F24",label:"○",type:TYPE_NORMAL,row:24,col:col("F"),next:["F23"],text:""},
+{id:"F23",label:"ゴ",type:TYPE_GOAL,row:23,col:col("F"),next:["F23"],text:"ゴール"},
+];
+
+
+const idToIndex = {};
+board.forEach((c,i)=>idToIndex[c.id]=i);
+
+/*** ★ プレイヤー関連 ★ ***/
+
+// 5人の名前をゲーム開始時に決める
+// 5人の名前を入力
+const players = [];
+for (let i = 0; i < 5; i++) {
+  const name = prompt(`プレイヤー${i+1}の名前を入力してください`, `P${i+1}`) || `P${i+1}`;
+  players.push({ id: i, name });
+}
+
+
+// 手番順を自分で決める
+let turnOrder = [];
+
+alert("次の画面で、手番順を決めてください。\n1番目に動くプレイヤーから順に選んでいきます。");
+
+let remaining = [...players];
+
+for (let pos = 0; pos < 5; pos++) {
+  let msg = `手番 ${pos+1} に動くプレイヤーを選んでください。\n\n`;
+  remaining.forEach((p, i) => {
+    msg += `${i+1}: ${p.name}\n`;
+  });
+
+  let choice = parseInt(prompt(msg)) - 1;
+  if (isNaN(choice) || choice < 0 || choice >= remaining.length) choice = 0;
+
+  turnOrder.push(remaining[choice].id);
+  remaining.splice(choice, 1);
+}
+
+const textSlots = [];
+const imageList = [];
+
+// ページ読み込み時に50枠生成
+window.onload = () => {
+  const container = document.getElementById("textSlots");
+  for (let i = 0; i < 50; i++) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = `スロット ${i+1}`;
+    input.style = "width:300px; margin:3px;";
+    container.appendChild(input);
+    textSlots.push(input);
+  }
+};
+
+document.getElementById("imgInput").addEventListener("change", (e) => {
+  const files = e.target.files;
+
+  for (let f of files) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      imageList.push(reader.result);
+
+      // サムネイル表示
+      const img = document.createElement("img");
+      img.src = reader.result;
+      img.width = 60;
+      img.style = "border:1px solid #ccc;";
+      document.getElementById("imgList").appendChild(img);
+    };
+    reader.readAsDataURL(f);
+  }
+});
+
+function findCellBeforeGoal() {
+  const goalIndex = board.findIndex(c => c.type === TYPE_GOAL);
+  return board.findIndex(c => c.next && c.next.includes(board[goalIndex].id));
+}
+
+function shuffleAndAssign() {
+  const beforeGoalIndex = findCellBeforeGoal();
+
+  // 文章を収集
+  const texts = textSlots.map(i => i.value || "");
+
+  // シャッフル
+  for (let i = texts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [texts[i], texts[j]] = [texts[j], texts[i]];
+  }
+
+  // 画像もシャッフル
+  for (let i = imageList.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [imageList[i], imageList[j]] = [imageList[j], imageList[i]];
+  }
+
+  // マスへ割り当て
+  let tIndex = 0;
+  let imgIndex = 0;
+
+  board.forEach((cell, i) => {
+    if (i === beforeGoalIndex) return; // ← ゴール1個手前は固定
+
+    cell.text = texts[tIndex % texts.length];
+    tIndex++;
+
+    cell.image = imageList.length > 0 ? imageList[imgIndex % imageList.length] : null;
+    imgIndex++;
+  });
+}
+
+document.getElementById("startGameBtn").onclick = () => {
+  shuffleAndAssign();
+
+  // 設定画面を消す
+  document.getElementById("setupPanel").style.display = "none";
+
+  // プレイヤー名入力へ
+  setupPlayers();
+
+  renderBoard();
+};
+
+
+let currentTurnPos = 0;
+
+// 全員スタート位置（A1）に配置
+const startIndex = idToIndex["A1"];
+let playerIndex = players.map(()=> startIndex);
+
+// ワープ設定（止まったときだけ発動）
+const WARP_FROM_ID = "F20";
+const WARP_TO_ID   = "C11";
+
+function currentPlayerId() {
+  return turnOrder[currentTurnPos];
+}
+
+function updateTurnInfo() {
+  const cp = currentPlayerId();
+  const name = players[cp].name;
+  const orderText = turnOrder.map(id => players[id].name).join(" → ");
+  document.getElementById("turnInfo").innerText =
+    `手番順：${orderText}\n現在の手番：${name}`;
+}
+
+
+
+/*** ★ 描画 ★ ***/
+function renderBoard(){
+  const b = document.getElementById("board");
+  b.innerHTML = "";
+  board.forEach((c,i)=>{
+    const d = document.createElement("div");
+    d.className = "cell";
+    d.style.gridRow = c.row;
+    d.style.gridColumn = c.col;
+    d.onclick = () => editCell(i);
+
+    // ラベル
+    const l = document.createElement("div");
+    l.innerText = c.label;
+    d.appendChild(l);
+
+    // 画像
+    if (c.image){
+      const img = document.createElement("img");
+      img.src = c.image;
+      d.appendChild(img);
+    }
+
+    // テキスト
+    const p = document.createElement("p");
+    p.innerText = c.text || "";
+    d.appendChild(p);
+
+    // このマスにいるプレイヤーたち
+    const here = [];
+    playerIndex.forEach((pos, pid)=>{
+      if (pos === i) here.push(pid);
+    });
+    if (here.length > 0) {
+      const badge = document.createElement("div");
+      badge.className = "players-badge";
+      here.forEach(pid=>{
+        const dot = document.createElement("div");
+        dot.className = `player-dot p${pid}`;
+        dot.title = players[pid].name;
+        badge.appendChild(dot);
+      });
+      d.appendChild(badge);
+    }
+
+    b.appendChild(d);
+  });
+}
+
+/*** ★ サイコロ＆移動 ★ ***/
+function rollDice(){
+  const pid = currentPlayerId();
+
+  function rollDice() {
+  const pid = currentPlayerId();
+
+  // ★ 10% の確率で mp4 再生
+  if (Math.random() < 0.1) {
+    playEventVideo("event.mp4", () => {
+      // 再生後にサイコロ処理を続行
+      rollDice();
+    });
+    return;
+  }
+
+  // ★ ここから下はいつものサイコロ処理
+  const dice = Math.floor(Math.random() * 6) + 1;
+  animateDice(dice);
+}
+
+  const wantRest = confirm(`${players[pid].name} のターンです。休みますか？`); 
+  if (wantRest) { alert(`${players[pid].name} はこのターン休みます`); 
+    currentTurnPos = (currentTurnPos + 1) % players.length; updateTurnInfo(); return; }
+  const name = players[pid].name;
+
+  const btn = document.querySelector("button");
+  btn.disabled = true;
+
+  const diceImg = document.getElementById("diceImg");
+
+  // 🎲 サイコロ画像アニメーション
+  let count = 0;
+  const anim = setInterval(()=>{
+    const r = Math.floor(Math.random()*6)+1;
+    diceImg.src = `dice${r}.png`;
+    count++;
+    if(count > 10){ // 約0.8秒
+      clearInterval(anim);
+
+      // 🎲 最終出目
+      const dice = Math.floor(Math.random()*6)+1;
+      diceImg.src = `dice${dice}.png`;
+
+      // ★ ここから1マスずつ進む処理へ
+      moveStepByStep(pid, dice, () => {
+
+        // 止まった後のワープ判定
+        let stoppedCell = board[playerIndex[pid]];
+        if (stoppedCell.id === WARP_FROM_ID) {
+          playerIndex[pid] = idToIndex[WARP_TO_ID];
+          stoppedCell = board[playerIndex[pid]];
+          renderBoard();
+        }
+
+        document.getElementById("status").innerText =
+          `${name} のサイコロ: ${dice} → ${stoppedCell.id}`;
+
+        // ゴール判定
+        if (stoppedCell.type === TYPE_GOAL) {
+          alert(`${name} がゴールしました！`);
+        }
+
+        // 手番を次へ
+        currentTurnPos = (currentTurnPos + 1) % players.length;
+        updateTurnInfo();
+        renderBoard();
+
+        btn.disabled = false;
+      });
+    }
+  }, 80); // 切り替え速度
+}
+
+function moveStepByStep(pid, steps, callback) {
+  if (steps <= 0) {
+    callback();
+    return;
+  }
+
+  let cell = board[playerIndex[pid]];
+
+  // 分岐処理
+  if (cell.type === TYPE_BRANCH) {
+    const opts = cell.next;
+    let msg = `${players[pid].name} の分岐です。どちらに進みますか？\n`;
+    opts.forEach((id,i)=>{
+      msg += `${i+1}: ${id}\n`;
+    });
+    let c = parseInt(prompt(msg)) - 1;
+    if (isNaN(c) || c < 0 || c >= opts.length) c = 0;
+    playerIndex[pid] = idToIndex[opts[c]];
+  } else {
+    const nextIds = cell.next;
+    if (!nextIds || nextIds.length === 0) {
+      callback();
+      return;
+    }
+    playerIndex[pid] = idToIndex[nextIds[0]];
+  }
+
+  // 🎵 1マス進むごとにMP3再生
+  const audio = new Audio("step.mp3");
+  audio.play();
+
+  renderBoard();
+
+  setTimeout(()=>{
+    moveStepByStep(pid, steps - 1, callback);
+  }, 300);
+}
+
+function findCellBeforeGoal() {
+  const goalIndex = board.findIndex(c => c.type === TYPE_GOAL);
+  return board.findIndex(c => c.next && c.next.includes(board[goalIndex].id));
+}
+
+function showCellPopup(cell) {
+  const popup = document.getElementById("cellPopup");
+  const text = document.getElementById("popupText");
+  const img = document.getElementById("popupImg");
+
+  text.innerText = cell.text || "";
+
+  if (cell.image) {
+    img.src = cell.image;
+    img.style.display = "block";
+  } else {
+    img.style.display = "none";
+  }
+
+  popup.style.display = "block";
+}
+
+function closeCellPopup() {
+  document.getElementById("cellPopup").style.display = "none";
+}
+
+function moveStepByStep(pid, steps, callback) {
+  if (steps <= 0) {
+
+  const cell = board[playerIndex[pid]];
+  const beforeGoalIndex = findCellBeforeGoal();
+
+  // ★ ゴール1個前なら即敗北
+if (board.indexOf(cell) === beforeGoalIndex) {
+
+  // ★ 負けた時の音を鳴らす
+  const audio = new Audio("lose.mp3");
+  audio.play();
+  new Audio("lose.mp3").play();
+
+
+  // ★ 負け画像の点滅ポップアップ
+  showLosePopup("lose.png");
+
+  return;
+}
+
+
+  // ★ 通常のマス表示（文章＋画像）
+  showCellPopup(cell);
+
+  callback();
+  return;
+}
+
+
+  // ここから下は今まで通り
+  let cell = board[playerIndex[pid]];
+
+  if (cell.type === TYPE_BRANCH) {
+    const opts = cell.next;
+    let msg = `${players[pid].name} の分岐です。どちらに進みますか？\n`;
+    opts.forEach((id,i)=>{
+      msg += `${i+1}: ${id}\n`;
+    });
+    let c = parseInt(prompt(msg)) - 1;
+    if (isNaN(c) || c < 0 || c >= opts.length) c = 0;
+    playerIndex[pid] = idToIndex[opts[c]];
+  } else {
+    const nextIds = cell.next;
+    if (!nextIds || nextIds.length === 0) {
+      callback();
+      return;
+    }
+    playerIndex[pid] = idToIndex[nextIds[0]];
+  }
+
+  const audio = new Audio("step.mp3");
+  audio.play();
+
+  renderBoard();
+
+  setTimeout(()=>{
+    moveStepByStep(pid, steps - 1, callback);
+  }, 300);
+}
+
+function showLosePopup(imgSrc) {
+  const popup = document.getElementById("losePopup");
+  const img = document.getElementById("loseImg");
+
+  img.classList.remove("blink"); // 念のためリセット
+  img.src = imgSrc;
+
+  popup.style.display = "block";
+
+  // 点滅開始
+  img.classList.add("blink");
+}
+
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "d" || e.key === "D") {
+    debugMove();
+  }
+});
+
+function debugMove() {
+  const pid = currentPlayerId();
+  const id = prompt("デバッグ移動：移動したいマスIDを入力してください");
+
+  if (!id || !idToIndex[id]) {
+    alert("そのIDのマスは存在しません");
+    return;
+  }
+
+  // 強制移動
+  playerIndex[pid] = idToIndex[id];
+  renderBoard();
+
+  const cell = board[playerIndex[pid]];
+  const beforeGoalIndex = findCellBeforeGoal();
+
+  // ★ ゴール1個前なら即敗北
+  if (board.indexOf(cell) === beforeGoalIndex) {
+    showLosePopup("lose.png");
+    return;
+  }
+
+  // ★ 通常のマス表示
+  showCellPopup(cell);
+}
+
+function playEventVideo(src, onEnd) {
+  const popup = document.getElementById("videoPopup");
+  const video = document.getElementById("eventVideo");
+
+  popup.style.display = "flex";
+  video.src = src;
+  video.play();
+
+  video.onended = () => {
+    popup.style.display = "none";
+    video.src = "";
+    if (onEnd) onEnd();
+  };
+}
+
+
+
+/*** ★ 初期描画 ★ ***/
+updateTurnInfo();
+renderBoard();
+</script>
+
+</body>
+</html>
