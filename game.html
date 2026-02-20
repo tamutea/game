@@ -178,6 +178,8 @@
 <div id="board"></div>
 <button onclick="rollDice()">サイコロを振る</button>
 <button onclick="rollReverseDice()">逆サイコロを振る</button>
+<button onclick="exportData()">文章データを書き出す</button>
+<input type="file" onchange="importData(event)">
 <p id="status">ゲーム開始前です。</p>
 <img id="diceImg" src="dice1.png" width="80">
 
@@ -201,137 +203,137 @@ function col(c){ return c.charCodeAt(0)-64; }
    ];
 */
 let board = [/* ←ここをあなたの現行 board 定義で埋める */  // A1〜A7
-  {id:"A1",label:"ス",type:TYPE_START,row:1,col:col("A"),next:["A2"],text:""},
-  {id:"A2",label:"○",type:TYPE_NORMAL,row:2,col:col("A"),next:["A3"],text:""},
-  {id:"A3",label:"○",type:TYPE_NORMAL,row:3,col:col("A"),next:["A4"],text:""},
-  {id:"A4",label:"○",type:TYPE_NORMAL,row:4,col:col("A"),next:["A5"],text:""},
-  {id:"A5",label:"○",type:TYPE_NORMAL,row:5,col:col("A"),next:["A6"],text:""},
-  {id:"A6",label:"○",type:TYPE_NORMAL,row:6,col:col("A"),next:["A7"],text:""},
-  {id:"A7",label:"○",type:TYPE_NORMAL,row:7,col:col("A"),next:["A8"],text:""},
+  {id:"A1",label:"ス",type:TYPE_START,row:1,col:col("A"),next:["A2"],text:"", move:0},
+  {id:"A2",label:"○",type:TYPE_NORMAL,row:2,col:col("A"),next:["A3"],text:"", move:0},
+  {id:"A3",label:"○",type:TYPE_NORMAL,row:3,col:col("A"),next:["A4"],text:"", move:0},
+  {id:"A4",label:"○",type:TYPE_NORMAL,row:4,col:col("A"),next:["A5"],text:"", move:0},
+  {id:"A5",label:"○",type:TYPE_NORMAL,row:5,col:col("A"),next:["A6"],text:"", move:0},
+  {id:"A6",label:"○",type:TYPE_NORMAL,row:6,col:col("A"),next:["A7"],text:"", move:0},
+  {id:"A7",label:"○",type:TYPE_NORMAL,row:7,col:col("A"),next:["A8"],text:"", move:0},
 
   // A8 分岐①
-  {id:"A8",label:"●",type:TYPE_BRANCH,row:8,col:col("A"),next:["B8","A9"],text:"分岐1"},
+  {id:"A8",label:"●",type:TYPE_BRANCH,row:8,col:col("A"),next:["B8","A9"],text:"分岐1", move:0},
 
   // A8 → 右ルート → H11
-  {id:"B8",label:"○",type:TYPE_NORMAL,row:8,col:col("B"),next:["C8"],text:""},
-  {id:"C8",label:"○",type:TYPE_NORMAL,row:8,col:col("C"),next:["D8"],text:""},
-  {id:"D8",label:"○",type:TYPE_NORMAL,row:8,col:col("D"),next:["E8"],text:""},
-  {id:"E8",label:"○",type:TYPE_NORMAL,row:8,col:col("E"),next:["F8"],text:""},
-  {id:"F8",label:"○",type:TYPE_NORMAL,row:8,col:col("F"),next:["G8"],text:""},
-  {id:"G8",label:"○",type:TYPE_NORMAL,row:8,col:col("G"),next:["H8"],text:""},
-  {id:"H8",label:"○",type:TYPE_NORMAL,row:8,col:col("H"),next:["H9"],text:""},
-  {id:"H9",label:"○",type:TYPE_NORMAL,row:9,col:col("H"),next:["H10"],text:""},
-  {id:"H10",label:"○",type:TYPE_NORMAL,row:10,col:col("H"),next:["H11"],text:""},
+  {id:"B8",label:"○",type:TYPE_NORMAL,row:8,col:col("B"),next:["C8"],text:"", move:0},
+  {id:"C8",label:"○",type:TYPE_NORMAL,row:8,col:col("C"),next:["D8"],text:"", move:0},
+  {id:"D8",label:"○",type:TYPE_NORMAL,row:8,col:col("D"),next:["E8"],text:"", move:0},
+  {id:"E8",label:"○",type:TYPE_NORMAL,row:8,col:col("E"),next:["F8"],text:"", move:0},
+  {id:"F8",label:"○",type:TYPE_NORMAL,row:8,col:col("F"),next:["G8"],text:"", move:0},
+  {id:"G8",label:"○",type:TYPE_NORMAL,row:8,col:col("G"),next:["H8"],text:"", move:0},
+  {id:"H8",label:"○",type:TYPE_NORMAL,row:8,col:col("H"),next:["H9"],text:"", move:0},
+  {id:"H9",label:"○",type:TYPE_NORMAL,row:9,col:col("H"),next:["H10"],text:"", move:0},
+  {id:"H10",label:"○",type:TYPE_NORMAL,row:10,col:col("H"),next:["H11"],text:"", move:0},
 
   // 一方通行 H11
-  {id:"H11",label:"▲",type:TYPE_ONEWAY,row:11,col:col("H"),next:["I11"],text:"一方通行"},
+  {id:"H11",label:"▲",type:TYPE_ONEWAY,row:11,col:col("H"),next:["I11"],text:"一方通行", move:0},
 
   // A8 → 下ルート → H11 に合流
-  {id:"A9",label:"○",type:TYPE_NORMAL,row:9,col:col("A"),next:["A10"],text:""},
-  {id:"A10",label:"○",type:TYPE_NORMAL,row:10,col:col("A"),next:["A11"],text:""},
-  {id:"A11",label:"○",type:TYPE_NORMAL,row:11,col:col("A"),next:["A12"],text:""},
-  {id:"A12",label:"○",type:TYPE_NORMAL,row:12,col:col("A"),next:["A13"],text:""},
-  {id:"A13",label:"○",type:TYPE_NORMAL,row:13,col:col("A"),next:["A14"],text:""},
-  {id:"A14",label:"○",type:TYPE_NORMAL,row:14,col:col("A"),next:["B14"],text:""},
+  {id:"A9",label:"○",type:TYPE_NORMAL,row:9,col:col("A"),next:["A10"],text:"", move:0},
+  {id:"A10",label:"○",type:TYPE_NORMAL,row:10,col:col("A"),next:["A11"],text:"", move:0},
+  {id:"A11",label:"○",type:TYPE_NORMAL,row:11,col:col("A"),next:["A12"],text:"", move:0},
+  {id:"A12",label:"○",type:TYPE_NORMAL,row:12,col:col("A"),next:["A13"],text:"", move:0},
+  {id:"A13",label:"○",type:TYPE_NORMAL,row:13,col:col("A"),next:["A14"],text:"", move:0},
+  {id:"A14",label:"○",type:TYPE_NORMAL,row:14,col:col("A"),next:["B14"],text:"", move:0},
 
-  {id:"B14",label:"○",type:TYPE_NORMAL,row:14,col:col("B"),next:["C14"],text:""},
-  {id:"C14",label:"○",type:TYPE_NORMAL,row:14,col:col("C"),next:["D14"],text:""},
-  {id:"D14",label:"○",type:TYPE_NORMAL,row:14,col:col("D"),next:["E14"],text:""},
-  {id:"E14",label:"○",type:TYPE_NORMAL,row:14,col:col("E"),next:["F14"],text:""},
-  {id:"F14",label:"○",type:TYPE_NORMAL,row:14,col:col("F"),next:["G14"],text:""},
-  {id:"G14",label:"○",type:TYPE_NORMAL,row:14,col:col("G"),next:["H14"],text:""},
-  {id:"H14",label:"○",type:TYPE_NORMAL,row:14,col:col("H"),next:["H13"],text:""},
-  {id:"H13",label:"○",type:TYPE_NORMAL,row:13,col:col("H"),next:["H12"],text:""},
-  {id:"H12",label:"○",type:TYPE_NORMAL,row:12,col:col("H"),next:["H11"],text:""},
+  {id:"B14",label:"○",type:TYPE_NORMAL,row:14,col:col("B"),next:["C14"],text:"", move:0},
+  {id:"C14",label:"○",type:TYPE_NORMAL,row:14,col:col("C"),next:["D14"],text:"", move:0},
+  {id:"D14",label:"○",type:TYPE_NORMAL,row:14,col:col("D"),next:["E14"],text:"", move:0},
+  {id:"E14",label:"○",type:TYPE_NORMAL,row:14,col:col("E"),next:["F14"],text:"", move:0},
+  {id:"F14",label:"○",type:TYPE_NORMAL,row:14,col:col("F"),next:["G14"],text:"", move:0},
+  {id:"G14",label:"○",type:TYPE_NORMAL,row:14,col:col("G"),next:["H14"],text:"", move:0},
+  {id:"H14",label:"○",type:TYPE_NORMAL,row:14,col:col("H"),next:["H13"],text:"", move:0},
+  {id:"H13",label:"○",type:TYPE_NORMAL,row:13,col:col("H"),next:["H12"],text:"", move:0},
+  {id:"H12",label:"○",type:TYPE_NORMAL,row:12,col:col("H"),next:["H11"],text:"", move:0},
 
   // ◎ ワープ先 C11 から H11 まで横に進む
-  {id:"C11",label:"◎",type:TYPE_WARP_TO,row:11,col:col("C"),next:["D11"],text:"ワープ先"},
-  {id:"D11",label:"○",type:TYPE_NORMAL,row:11,col:col("D"),next:["E11"],text:""},
-  {id:"E11",label:"○",type:TYPE_NORMAL,row:11,col:col("E"),next:["F11"],text:""},
-  {id:"F11",label:"○",type:TYPE_NORMAL,row:11,col:col("F"),next:["G11"],text:""},
-  {id:"G11",label:"○",type:TYPE_NORMAL,row:11,col:col("G"),next:["H11"],text:""},
+  {id:"C11",label:"◎",type:TYPE_WARP_TO,row:11,col:col("C"),next:["D11"],text:"ワープ先", move:0},
+  {id:"D11",label:"○",type:TYPE_NORMAL,row:11,col:col("D"),next:["E11"],text:"", move:0},
+  {id:"E11",label:"○",type:TYPE_NORMAL,row:11,col:col("E"),next:["F11"],text:"", move:0},
+  {id:"F11",label:"○",type:TYPE_NORMAL,row:11,col:col("F"),next:["G11"],text:"", move:0},
+  {id:"G11",label:"○",type:TYPE_NORMAL,row:11,col:col("G"),next:["H11"],text:"", move:0},
 
   // H11 → M11
-  {id:"I11",label:"○",type:TYPE_NORMAL,row:11,col:col("I"),next:["J11"],text:""},
-  {id:"J11",label:"○",type:TYPE_NORMAL,row:11,col:col("J"),next:["K11"],text:""},
-  {id:"K11",label:"○",type:TYPE_NORMAL,row:11,col:col("K"),next:["L11"],text:""},
-  {id:"L11",label:"○",type:TYPE_NORMAL,row:11,col:col("L"),next:["M11"],text:""},
-  {id:"M11",label:"○",type:TYPE_NORMAL,row:11,col:col("M"),next:["M12"],text:""},
+  {id:"I11",label:"○",type:TYPE_NORMAL,row:11,col:col("I"),next:["J11"],text:"", move:0},
+  {id:"J11",label:"○",type:TYPE_NORMAL,row:11,col:col("J"),next:["K11"],text:"", move:0},
+  {id:"K11",label:"○",type:TYPE_NORMAL,row:11,col:col("K"),next:["L11"],text:"", move:0},
+  {id:"L11",label:"○",type:TYPE_NORMAL,row:11,col:col("L"),next:["M11"],text:"", move:0},
+  {id:"M11",label:"○",type:TYPE_NORMAL,row:11,col:col("M"),next:["M12"],text:"", move:0},
 
   // M11 → M19
-  {id:"M12",label:"○",type:TYPE_NORMAL,row:12,col:col("M"),next:["M13"],text:""},
-  {id:"M13",label:"○",type:TYPE_NORMAL,row:13,col:col("M"),next:["M14"],text:""},
-  {id:"M14",label:"○",type:TYPE_NORMAL,row:14,col:col("M"),next:["M15"],text:""},
-  {id:"M15",label:"○",type:TYPE_NORMAL,row:15,col:col("M"),next:["M16"],text:""},
-  {id:"M16",label:"○",type:TYPE_NORMAL,row:16,col:col("M"),next:["M17"],text:""},
-  {id:"M17",label:"○",type:TYPE_NORMAL,row:17,col:col("M"),next:["M18"],text:""},
-  {id:"M18",label:"○",type:TYPE_NORMAL,row:18,col:col("M"),next:["M19"],text:""},
-  {id:"M19",label:"○",type:TYPE_NORMAL,row:19,col:col("M"),next:["L19"],text:""},
+  {id:"M12",label:"○",type:TYPE_NORMAL,row:12,col:col("M"),next:["M13"],text:"", move:0},
+  {id:"M13",label:"○",type:TYPE_NORMAL,row:13,col:col("M"),next:["M14"],text:"", move:0},
+  {id:"M14",label:"○",type:TYPE_NORMAL,row:14,col:col("M"),next:["M15"],text:"", move:0},
+  {id:"M15",label:"○",type:TYPE_NORMAL,row:15,col:col("M"),next:["M16"],text:"", move:0},
+  {id:"M16",label:"○",type:TYPE_NORMAL,row:16,col:col("M"),next:["M17"],text:"", move:0},
+  {id:"M17",label:"○",type:TYPE_NORMAL,row:17,col:col("M"),next:["M18"],text:"", move:0},
+  {id:"M18",label:"○",type:TYPE_NORMAL,row:18,col:col("M"),next:["M19"],text:"", move:0},
+  {id:"M19",label:"○",type:TYPE_NORMAL,row:19,col:col("M"),next:["L19"],text:"", move:0},
 
   // M19 → F19
-  {id:"L19",label:"○",type:TYPE_NORMAL,row:19,col:col("L"),next:["K19"],text:""},
-  {id:"K19",label:"○",type:TYPE_NORMAL,row:19,col:col("K"),next:["J19"],text:""},
-  {id:"J19",label:"○",type:TYPE_NORMAL,row:19,col:col("J"),next:["I19"],text:""},
-  {id:"I19",label:"○",type:TYPE_NORMAL,row:19,col:col("I"),next:["H19"],text:""},
-  {id:"H19",label:"○",type:TYPE_NORMAL,row:19,col:col("H"),next:["G19"],text:""},
-  {id:"G19",label:"○",type:TYPE_NORMAL,row:19,col:col("G"),next:["F19"],text:""},
-  {id:"F19",label:"○",type:TYPE_NORMAL,row:19,col:col("F"),next:["F20"],text:""},
+  {id:"L19",label:"○",type:TYPE_NORMAL,row:19,col:col("L"),next:["K19"],text:"", move:0},
+  {id:"K19",label:"○",type:TYPE_NORMAL,row:19,col:col("K"),next:["J19"],text:"", move:0},
+  {id:"J19",label:"○",type:TYPE_NORMAL,row:19,col:col("J"),next:["I19"],text:"", move:0},
+  {id:"I19",label:"○",type:TYPE_NORMAL,row:19,col:col("I"),next:["H19"],text:"", move:0},
+  {id:"H19",label:"○",type:TYPE_NORMAL,row:19,col:col("H"),next:["G19"],text:"", move:0},
+  {id:"G19",label:"○",type:TYPE_NORMAL,row:19,col:col("G"),next:["F19"],text:"", move:0},
+  {id:"F19",label:"○",type:TYPE_NORMAL,row:19,col:col("F"),next:["F20"],text:"", move:0},
 
   // △ ワープ元 F20（止まったときだけ C11 へワープ）
   // 通常の進行としては F21 へ進む
-  {id:"F20",label:"△",type:TYPE_WARP_FROM,row:20,col:col("F"),next:["F21"],text:"ワープ元"},
+  {id:"F20",label:"△",type:TYPE_WARP_FROM,row:20,col:col("F"),next:["F21"],text:"ワープ元", move:0},
 
 
 // ここから下、F21 以降を差し替え
 
 // 分岐② F21
-{id:"F21",label:"●",type:TYPE_BRANCH,row:21,col:col("F"),next:["G21","E21"],text:"分岐2"},
+{id:"F21",label:"●",type:TYPE_BRANCH,row:21,col:col("F"),next:["G21","E21"],text:"分岐2", move:0},
 
 // 右ルート：F21 → I21
-{id:"G21",label:"○",type:TYPE_NORMAL,row:21,col:col("G"),next:["H21"],text:""},
-{id:"H21",label:"○",type:TYPE_NORMAL,row:21,col:col("H"),next:["I21"],text:""},
-{id:"I21",label:"○",type:TYPE_NORMAL,row:21,col:col("I"),next:["I22"],text:""},
+{id:"G21",label:"○",type:TYPE_NORMAL,row:21,col:col("G"),next:["H21"],text:"", move:0},
+{id:"H21",label:"○",type:TYPE_NORMAL,row:21,col:col("H"),next:["I21"],text:"", move:0},
+{id:"I21",label:"○",type:TYPE_NORMAL,row:21,col:col("I"),next:["I22"],text:"", move:0},
 
 // 右ルート：I21 → I29（下へ）
-{id:"I22",label:"○",type:TYPE_NORMAL,row:22,col:col("I"),next:["I23"],text:""},
-{id:"I23",label:"○",type:TYPE_NORMAL,row:23,col:col("I"),next:["I24"],text:""},
-{id:"I24",label:"○",type:TYPE_NORMAL,row:24,col:col("I"),next:["I25"],text:""},
-{id:"I25",label:"○",type:TYPE_NORMAL,row:25,col:col("I"),next:["I26"],text:""},
-{id:"I26",label:"○",type:TYPE_NORMAL,row:26,col:col("I"),next:["I27"],text:""},
-{id:"I27",label:"○",type:TYPE_NORMAL,row:27,col:col("I"),next:["I28"],text:""},
-{id:"I28",label:"○",type:TYPE_NORMAL,row:28,col:col("I"),next:["I29"],text:""},
-{id:"I29",label:"○",type:TYPE_NORMAL,row:29,col:col("I"),next:["H29"],text:""},
+{id:"I22",label:"○",type:TYPE_NORMAL,row:22,col:col("I"),next:["I23"],text:"", move:0},
+{id:"I23",label:"○",type:TYPE_NORMAL,row:23,col:col("I"),next:["I24"],text:"", move:0},
+{id:"I24",label:"○",type:TYPE_NORMAL,row:24,col:col("I"),next:["I25"],text:"", move:0},
+{id:"I25",label:"○",type:TYPE_NORMAL,row:25,col:col("I"),next:["I26"],text:"", move:0},
+{id:"I26",label:"○",type:TYPE_NORMAL,row:26,col:col("I"),next:["I27"],text:"", move:0},
+{id:"I27",label:"○",type:TYPE_NORMAL,row:27,col:col("I"),next:["I28"],text:"", move:0},
+{id:"I28",label:"○",type:TYPE_NORMAL,row:28,col:col("I"),next:["I29"],text:"", move:0},
+{id:"I29",label:"○",type:TYPE_NORMAL,row:29,col:col("I"),next:["H29"],text:"", move:0},
 
 // 右ルート：I29 → F29（左へ）
-{id:"H29",label:"○",type:TYPE_NORMAL,row:29,col:col("H"),next:["G29"],text:""},
-{id:"G29",label:"○",type:TYPE_NORMAL,row:29,col:col("G"),next:["F29"],text:""},
+{id:"H29",label:"○",type:TYPE_NORMAL,row:29,col:col("H"),next:["G29"],text:"", move:0},
+{id:"G29",label:"○",type:TYPE_NORMAL,row:29,col:col("G"),next:["F29"],text:"", move:0},
 
 // 左ルート：F21 → C21
-{id:"E21",label:"○",type:TYPE_NORMAL,row:21,col:col("E"),next:["D21"],text:""},
-{id:"D21",label:"○",type:TYPE_NORMAL,row:21,col:col("D"),next:["C21"],text:""},
-{id:"C21",label:"○",type:TYPE_NORMAL,row:21,col:col("C"),next:["C22"],text:""},
+{id:"E21",label:"○",type:TYPE_NORMAL,row:21,col:col("E"),next:["D21"],text:"", move:0},
+{id:"D21",label:"○",type:TYPE_NORMAL,row:21,col:col("D"),next:["C21"],text:"", move:0},
+{id:"C21",label:"○",type:TYPE_NORMAL,row:21,col:col("C"),next:["C22"],text:"", move:0},
 
 // 左ルート：C21 → C29（下へ）
-{id:"C22",label:"○",type:TYPE_NORMAL,row:22,col:col("C"),next:["C23"],text:""},
-{id:"C23",label:"○",type:TYPE_NORMAL,row:23,col:col("C"),next:["C24"],text:""},
-{id:"C24",label:"○",type:TYPE_NORMAL,row:24,col:col("C"),next:["C25"],text:""},
-{id:"C25",label:"○",type:TYPE_NORMAL,row:25,col:col("C"),next:["C26"],text:""},
-{id:"C26",label:"○",type:TYPE_NORMAL,row:26,col:col("C"),next:["C27"],text:""},
-{id:"C27",label:"○",type:TYPE_NORMAL,row:27,col:col("C"),next:["C28"],text:""},
-{id:"C28",label:"○",type:TYPE_NORMAL,row:28,col:col("C"),next:["C29"],text:""},
-{id:"C29",label:"○",type:TYPE_NORMAL,row:29,col:col("C"),next:["D29"],text:""},
+{id:"C22",label:"○",type:TYPE_NORMAL,row:22,col:col("C"),next:["C23"],text:"", move:0},
+{id:"C23",label:"○",type:TYPE_NORMAL,row:23,col:col("C"),next:["C24"],text:"", move:0},
+{id:"C24",label:"○",type:TYPE_NORMAL,row:24,col:col("C"),next:["C25"],text:"", move:0},
+{id:"C25",label:"○",type:TYPE_NORMAL,row:25,col:col("C"),next:["C26"],text:"", move:0},
+{id:"C26",label:"○",type:TYPE_NORMAL,row:26,col:col("C"),next:["C27"],text:"", move:0},
+{id:"C27",label:"○",type:TYPE_NORMAL,row:27,col:col("C"),next:["C28"],text:"", move:0},
+{id:"C28",label:"○",type:TYPE_NORMAL,row:28,col:col("C"),next:["C29"],text:"", move:0},
+{id:"C29",label:"○",type:TYPE_NORMAL,row:29,col:col("C"),next:["D29"],text:"", move:0},
 
 // 左ルート：C29 → F29（右へ）
-{id:"D29",label:"○",type:TYPE_NORMAL,row:29,col:col("D"),next:["E29"],text:""},
-{id:"E29",label:"○",type:TYPE_NORMAL,row:29,col:col("E"),next:["F29"],text:""},
+{id:"D29",label:"○",type:TYPE_NORMAL,row:29,col:col("D"),next:["E29"],text:"", move:0},
+{id:"E29",label:"○",type:TYPE_NORMAL,row:29,col:col("E"),next:["F29"],text:"", move:0},
 
 // 共通：F29 → F23（上に戻ってゴール）
-{id:"F29",label:"○",type:TYPE_NORMAL,row:29,col:col("F"),next:["F28"],text:""},
-{id:"F28",label:"○",type:TYPE_NORMAL,row:28,col:col("F"),next:["F27"],text:""},
-{id:"F27",label:"○",type:TYPE_NORMAL,row:27,col:col("F"),next:["F26"],text:""},
-{id:"F26",label:"○",type:TYPE_NORMAL,row:26,col:col("F"),next:["F25"],text:""},
-{id:"F25",label:"○",type:TYPE_NORMAL,row:25,col:col("F"),next:["F24"],text:""},
-{id:"F24",label:"○",type:TYPE_NORMAL,row:24,col:col("F"),next:["F23"],text:""},
+{id:"F29",label:"○",type:TYPE_NORMAL,row:29,col:col("F"),next:["F28"],text:"", move:0},
+{id:"F28",label:"○",type:TYPE_NORMAL,row:28,col:col("F"),next:["F27"],text:"", move:0},
+{id:"F27",label:"○",type:TYPE_NORMAL,row:27,col:col("F"),next:["F26"],text:"", move:0},
+{id:"F26",label:"○",type:TYPE_NORMAL,row:26,col:col("F"),next:["F25"],text:"", move:0},
+{id:"F25",label:"○",type:TYPE_NORMAL,row:25,col:col("F"),next:["F24"],text:"", move:0},
+{id:"F24",label:"○",type:TYPE_NORMAL,row:24,col:col("F"),next:["F23"],text:"", move:0},
 {id:"F23",label:"ゴ",type:TYPE_GOAL,row:23,col:col("F"),next:["F23"],text:"ゴール"},
 ];
 
@@ -591,24 +593,48 @@ function rollDice() {
 
 
 function moveStepByStep(pid, steps, callback) {
-  if (steps <= 0) {
+if (steps <= 0) {
 
-    const cell = board[playerIndex[pid]];
-    const beforeGoalIndex = findCellBeforeGoal();
+  let cell = board[playerIndex[pid]];
+  const beforeGoalIndex = findCellBeforeGoal();
 
-    // ★ ゴール1個前なら即敗北
-    if (board.indexOf(cell) === beforeGoalIndex) {
-      const audio = new Audio("lose.mp3");
-      audio.play();
-      showLosePopup("lose.jpg");
-      return;
-    }
-
-    // ★ 通常のマス表示
-    showCellPopup(cell);
-    callback();
+  // ゴール1個前なら敗北
+  if (board.indexOf(cell) === beforeGoalIndex) {
+    const audio = new Audio("lose.mp3");
+    audio.play();
+    showLosePopup("lose.jpg");
     return;
   }
+
+  // ★ ワープ処理をここに移動
+  if (cell.id === WARP_FROM_ID) {
+    playerIndex[pid] = idToIndex[WARP_TO_ID];
+    renderBoard();
+    cell = board[playerIndex[pid]];
+  }
+
+  showCellPopup(cell);
+
+  // ★ 追加移動
+  if (typeof cell.move === "number" && cell.move !== 0) {
+
+    const extra = cell.move;
+    cell.move = 0;
+
+    setTimeout(() => {
+      if (extra > 0) {
+        moveStepByStep(pid, extra, callback);
+      } else {
+        moveStepBack(pid, Math.abs(extra), callback);
+      }
+    }, 800);
+
+    return;
+  }
+
+  callback();
+  return;
+}
 
   let cell = board[playerIndex[pid]];
 
@@ -785,13 +811,28 @@ function rollReverseDice() {
 }
 
 
+function exportData() {
+  const data = localStorage.getItem("lifeGameTexts");
+  if (!data) return alert("保存データなし");
 
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "lifeGameTexts.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
 
 function moveStepBack(pid, steps, callback) {
   if (steps <= 0) {
     callback();
     return;
   }
+
+  
 
   // ★ 1マス戻る直前に効果音（進むときと同じ位置）
   const audio = new Audio("ppp.mp3");
@@ -822,8 +863,47 @@ function moveStepBack(pid, steps, callback) {
   }, 200);
 }
 
+function editCell(index) {
+  const cell = board[index];
 
+  const move = prompt(
+    "このマスで何マス移動させますか？\n（進むなら正の数、戻るなら負の数、なしは0）",
+    cell.move || 0
+  );
 
+  const num = parseInt(move);
+  if (!isNaN(num)) {
+    cell.move = num;
+    alert(`${num}マス移動に設定しました`);
+  }
+}
+
+function exportData() {
+  const data = localStorage.getItem("lifeGameTexts");
+  if (!data) return alert("保存データなし");
+
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "lifeGameTexts.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    localStorage.setItem("lifeGameTexts", e.target.result);
+    alert("読み込み完了！ページを再読み込みしてください");
+  };
+  reader.readAsText(file);
+}
 /*** ★ 初期描画 ★ ***/
 updateTurnInfo();
 renderBoard();
