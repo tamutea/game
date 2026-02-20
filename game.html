@@ -68,6 +68,14 @@
   animation: blink 0.09s infinite;
 }
 
+@keyframes popupFade {
+  0% { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+#cellPopup.show {
+  animation: popupFade 0.3s ease-out;
+}
 
 
 </style>
@@ -169,6 +177,7 @@
 <div id="turnInfo"></div>
 <div id="board"></div>
 <button onclick="rollDice()">サイコロを振る</button>
+<button onclick="rollReverseDice()">逆サイコロを振る</button>
 <p id="status">ゲーム開始前です。</p>
 <img id="diceImg" src="dice1.png" width="80">
 
@@ -367,11 +376,21 @@ const imageList = [];
 // ページ読み込み時に50枠生成
 window.onload = () => {
   const container = document.getElementById("textSlots");
+
+  // 保存データ読み込み
+  const savedTexts = JSON.parse(localStorage.getItem("lifeGameTexts") || "[]");
+
   for (let i = 0; i < 50; i++) {
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = `スロット ${i+1}`;
     input.style = "width:300px; margin:3px;";
+
+    // ★ 保存データがあれば復元
+    if (savedTexts[i]) {
+      input.value = savedTexts[i];
+    }
+
     container.appendChild(input);
     textSlots.push(input);
   }
@@ -435,14 +454,13 @@ function shuffleAndAssign() {
 }
 
 document.getElementById("startGameBtn").onclick = () => {
+
+  // ★ 保存処理追加
+  const textsToSave = textSlots.map(input => input.value);
+  localStorage.setItem("lifeGameTexts", JSON.stringify(textsToSave));
+
   shuffleAndAssign();
-
-  // 設定画面を消す
   document.getElementById("setupPanel").style.display = "none";
-
-  // プレイヤー名入力へ
-  setupPlayers();
-
   renderBoard();
 };
 
@@ -487,18 +505,6 @@ function renderBoard(){
     l.innerText = c.label;
     d.appendChild(l);
 
-    // 画像
-    if (c.image){
-      const img = document.createElement("img");
-      img.src = c.image;
-      d.appendChild(img);
-    }
-
-    // テキスト
-    const p = document.createElement("p");
-    p.innerText = c.text || "";
-    d.appendChild(p);
-
     // このマスにいるプレイヤーたち
     const here = [];
     playerIndex.forEach((pos, pid)=>{
@@ -521,29 +527,18 @@ function renderBoard(){
 }
 
 /*** ★ サイコロ＆移動 ★ ***/
-function rollDice(){
+function rollDice() {
   const pid = currentPlayerId();
 
-  function rollDice() {
-  const pid = currentPlayerId();
-
-  // ★ 10% の確率で mp4 再生
-  if (Math.random() < 0.1) {
-    playEventVideo("event.mp4", () => {
-      // 再生後にサイコロ処理を続行
-      rollDice();
-    });
+  // ★ 休むかどうか確認
+  const wantRest = confirm(`${players[pid].name} のターンです。休みますか？`);
+  if (wantRest) {
+    alert(`${players[pid].name} はこのターン休みます`);
+    currentTurnPos = (currentTurnPos + 1) % players.length;
+    updateTurnInfo();
     return;
   }
 
-  // ★ ここから下はいつものサイコロ処理
-  const dice = Math.floor(Math.random() * 6) + 1;
-  animateDice(dice);
-}
-
-  const wantRest = confirm(`${players[pid].name} のターンです。休みますか？`); 
-  if (wantRest) { alert(`${players[pid].name} はこのターン休みます`); 
-    currentTurnPos = (currentTurnPos + 1) % players.length; updateTurnInfo(); return; }
   const name = players[pid].name;
 
   const btn = document.querySelector("button");
@@ -553,15 +548,15 @@ function rollDice(){
 
   // 🎲 サイコロ画像アニメーション
   let count = 0;
-  const anim = setInterval(()=>{
-    const r = Math.floor(Math.random()*6)+1;
+  const anim = setInterval(() => {
+    const r = Math.floor(Math.random() * 6) + 1;
     diceImg.src = `dice${r}.png`;
     count++;
-    if(count > 10){ // 約0.8秒
+    if (count > 10) {
       clearInterval(anim);
 
       // 🎲 最終出目
-      const dice = Math.floor(Math.random()*6)+1;
+      const dice = Math.floor(Math.random() * 6) + 1;
       diceImg.src = `dice${dice}.png`;
 
       // ★ ここから1マスずつ進む処理へ
@@ -591,18 +586,32 @@ function rollDice(){
         btn.disabled = false;
       });
     }
-  }, 80); // 切り替え速度
+  }, 80);
 }
+
 
 function moveStepByStep(pid, steps, callback) {
   if (steps <= 0) {
+
+    const cell = board[playerIndex[pid]];
+    const beforeGoalIndex = findCellBeforeGoal();
+
+    // ★ ゴール1個前なら即敗北
+    if (board.indexOf(cell) === beforeGoalIndex) {
+      const audio = new Audio("lose.mp3");
+      audio.play();
+      showLosePopup("lose.jpg");
+      return;
+    }
+
+    // ★ 通常のマス表示
+    showCellPopup(cell);
     callback();
     return;
   }
 
   let cell = board[playerIndex[pid]];
 
-  // 分岐処理
   if (cell.type === TYPE_BRANCH) {
     const opts = cell.next;
     let msg = `${players[pid].name} の分岐です。どちらに進みますか？\n`;
@@ -621,7 +630,7 @@ function moveStepByStep(pid, steps, callback) {
     playerIndex[pid] = idToIndex[nextIds[0]];
   }
 
-  // 🎵 1マス進むごとにMP3再生
+  // ★ 進むときの音は step.mp3 のみ
   const audio = new Audio("step.mp3");
   audio.play();
 
@@ -631,6 +640,7 @@ function moveStepByStep(pid, steps, callback) {
     moveStepByStep(pid, steps - 1, callback);
   }, 300);
 }
+
 
 function findCellBeforeGoal() {
   const goalIndex = board.findIndex(c => c.type === TYPE_GOAL);
@@ -640,9 +650,9 @@ function findCellBeforeGoal() {
 function showCellPopup(cell) {
   const popup = document.getElementById("cellPopup");
   const text = document.getElementById("popupText");
-  const img = document.getElementById("popupImg");
+  const img  = document.getElementById("popupImg");
 
-  text.innerText = cell.text || "";
+  text.textContent = cell.text || "";
 
   if (cell.image) {
     img.src = cell.image;
@@ -651,73 +661,20 @@ function showCellPopup(cell) {
     img.style.display = "none";
   }
 
-  popup.style.display = "block";
+  popup.style.display = "flex";
+
+  // ★ アニメーション用クラス付与
+  popup.classList.remove("show");
+  void popup.offsetWidth; // ← 再アニメーション用のリセット
+  popup.classList.add("show");
 }
+
 
 function closeCellPopup() {
   document.getElementById("cellPopup").style.display = "none";
 }
 
-function moveStepByStep(pid, steps, callback) {
-  if (steps <= 0) {
 
-  const cell = board[playerIndex[pid]];
-  const beforeGoalIndex = findCellBeforeGoal();
-
-  // ★ ゴール1個前なら即敗北
-if (board.indexOf(cell) === beforeGoalIndex) {
-
-  // ★ 負けた時の音を鳴らす
-  const audio = new Audio("lose.mp3");
-  audio.play();
-  new Audio("lose.mp3").play();
-
-
-  // ★ 負け画像の点滅ポップアップ
-  showLosePopup("lose.jpg");
-
-  return;
-}
-
-
-  // ★ 通常のマス表示（文章＋画像）
-  showCellPopup(cell);
-
-  callback();
-  return;
-}
-
-
-  // ここから下は今まで通り
-  let cell = board[playerIndex[pid]];
-
-  if (cell.type === TYPE_BRANCH) {
-    const opts = cell.next;
-    let msg = `${players[pid].name} の分岐です。どちらに進みますか？\n`;
-    opts.forEach((id,i)=>{
-      msg += `${i+1}: ${id}\n`;
-    });
-    let c = parseInt(prompt(msg)) - 1;
-    if (isNaN(c) || c < 0 || c >= opts.length) c = 0;
-    playerIndex[pid] = idToIndex[opts[c]];
-  } else {
-    const nextIds = cell.next;
-    if (!nextIds || nextIds.length === 0) {
-      callback();
-      return;
-    }
-    playerIndex[pid] = idToIndex[nextIds[0]];
-  }
-
-  const audio = new Audio("step.mp3");
-  audio.play();
-
-  renderBoard();
-
-  setTimeout(()=>{
-    moveStepByStep(pid, steps - 1, callback);
-  }, 300);
-}
 
 function showLosePopup(imgSrc) {
   const popup = document.getElementById("losePopup");
@@ -778,6 +735,91 @@ function playEventVideo(src, onEnd) {
     video.src = "";
     if (onEnd) onEnd();
   };
+}
+
+function rollReverseDice() {
+  const pid = currentPlayerId();
+  const name = players[pid].name;
+
+  const btn = document.querySelector("button");
+  btn.disabled = true;
+
+  const diceImg = document.getElementById("diceImg");
+
+  // 🎵 mp3 再生（通常サイコロと同じ）
+
+  // 🎲 サイコロ画像アニメーション（完全に同じ）
+  let count = 0;
+  const anim = setInterval(() => {
+    const r = Math.floor(Math.random() * 6) + 1;
+    diceImg.src = `dice${r}.png`;
+    count++;
+    if (count > 10) {
+      clearInterval(anim);
+
+      // 🎲 最終出目
+      const dice = Math.floor(Math.random() * 6) + 1;
+      diceImg.src = `dice${dice}.png`;
+
+      // ★ ここから1マスずつ「戻る」処理へ
+      moveStepBack(pid, dice, () => {
+
+        let stoppedCell = board[playerIndex[pid]];
+        if (stoppedCell.id === WARP_FROM_ID) {
+          playerIndex[pid] = idToIndex[WARP_TO_ID];
+          stoppedCell = board[playerIndex[pid]];
+          renderBoard();
+        }
+
+        document.getElementById("status").innerText =
+          `${name} の逆サイコロ: ${dice} → ${stoppedCell.id}`;
+
+        currentTurnPos = (currentTurnPos + 1) % players.length;
+        updateTurnInfo();
+        renderBoard();
+
+        btn.disabled = false;
+      });
+    }
+  }, 80);
+}
+
+
+
+
+function moveStepBack(pid, steps, callback) {
+  if (steps <= 0) {
+    callback();
+    return;
+  }
+
+  // ★ 1マス戻る直前に効果音（進むときと同じ位置）
+  const audio = new Audio("ppp.mp3");
+  audio.play();
+
+  const current = playerIndex[pid];
+
+  // ★ 前のマスを探す
+  let prevIndex = null;
+  board.forEach((cell, idx) => {
+    if (cell.next && cell.next.includes(board[current].id)) {
+      prevIndex = idx;
+    }
+  });
+
+  if (prevIndex === null) {
+    callback();
+    return;
+  }
+
+  // ★ 実際に1マス戻る
+  playerIndex[pid] = prevIndex;
+  renderBoard();
+
+  // ★ 次のステップへ
+  setTimeout(() => {
+    moveStepBack(pid, steps - 1, callback);
+  }, 200);
 }
 
 
